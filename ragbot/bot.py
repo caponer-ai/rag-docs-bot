@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 import asyncio
+import html
 import logging
 import os
 
@@ -59,7 +60,10 @@ async def answer(m: Message) -> None:
         return
     # Історію тримаємо короткою: беремо повідомлення останніх ходів.
     histories[m.chat.id] = ans.messages[-HISTORY_TURNS * 2 :]
-    text = ans.text.strip() + f"\n\n<i>{ans.summary_line()}</i>"
+    # Текст моделі екрануємо: у ПДР трапляються «<» і «&», інакше Telegram поверне 400.
+    text = (
+        html.escape(ans.text.strip()) + f"\n\n<i>{html.escape(ans.summary_line())}</i>"
+    )
     await m.answer(text[:4000], parse_mode="HTML")
 
 

@@ -32,14 +32,17 @@ def build_model():
 
     ANTHROPIC_API_KEY → напряму в Anthropic (офіційний SDK).
     OPENROUTER_API_KEY → та сама модель через OpenRouter (один ключ на всі моделі,
-    так налаштовані інші боти Влада). Ціни за токен у обох однакові.
+    так налаштовані мої інші боти). Ціни за токен у обох однакові.
     """
     if os.getenv("ANTHROPIC_API_KEY"):
         from pydantic_ai.models.anthropic import AnthropicModel
 
         return AnthropicModel(MODEL), {"thinking": THINKING, "max_tokens": 4000}
     if os.getenv("OPENROUTER_API_KEY"):
-        from pydantic_ai.models.openrouter import OpenRouterModel, OpenRouterModelSettings
+        from pydantic_ai.models.openrouter import (
+            OpenRouterModel,
+            OpenRouterModelSettings,
+        )
 
         settings = OpenRouterModelSettings(
             openrouter_reasoning={"effort": THINKING},
@@ -47,7 +50,9 @@ def build_model():
             max_tokens=4000,
         )
         return OpenRouterModel(f"anthropic/{MODEL}"), settings
-    raise SystemExit("Потрібен ANTHROPIC_API_KEY або OPENROUTER_API_KEY у .env (див. .env.example)")
+    raise SystemExit(
+        "Потрібен ANTHROPIC_API_KEY або OPENROUTER_API_KEY у .env (див. .env.example)"
+    )
 
 
 INSTRUCTIONS = """Ти асистент, який відповідає на запитання СУВОРО за наданими документами.
@@ -71,7 +76,13 @@ class Deps:
 
 
 _model, _settings = build_model()
-agent = Agent(_model, deps_type=Deps, instructions=INSTRUCTIONS, model_settings=_settings, retries=2)
+agent = Agent(
+    _model,
+    deps_type=Deps,
+    instructions=INSTRUCTIONS,
+    model_settings=_settings,
+    retries=2,
+)
 
 
 @agent.tool
@@ -130,7 +141,10 @@ def ask(
         output_tokens=u.output_tokens,
         cache_read=u.cache_read_tokens,
         cache_write=u.cache_write_tokens,
-        cost_usd=estimate_cost(
+        # OpenRouter повертає фактичну вартість (usage.cost); без неї рахуємо за прайсом.
+        cost_usd=float(u.cost)
+        if getattr(u, "cost", None)
+        else estimate_cost(
             MODEL,
             u.input_tokens,
             u.output_tokens,
